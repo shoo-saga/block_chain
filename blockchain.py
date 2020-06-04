@@ -4,6 +4,9 @@ import logging
 import sys
 import time
 
+from ecdsa import NIST256p
+from ecdsa import VerifyingKey
+
 import utils
 
 MINING_DIFFICULTY: int = 3
@@ -47,6 +50,16 @@ class BlockChain(object):
         })
         self.transaction_pool.append(transaction)
         return True
+    def verify_transaction_signature(
+            self,sender_public_key, signature, transaction):
+        sha256 = hashlib.sha256()
+        sha256.update(str(transaction).encode('utf-8'))
+        message = sha256.digest()
+        signature_bytes = bytes().fromhex(signature)
+        verifying_key = VerifyingKey.from_string(
+            bytes().fromhex(sender_public_key), curve=NIST256p)
+        verified_key = verifying_key.verify(signature_bytes, message)
+        return verified_key
 
     def valid_proof(self, transactions, previous_hash, nonce,
                     difficulty=MINING_DIFFICULTY):
