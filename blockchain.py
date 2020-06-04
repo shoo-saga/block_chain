@@ -19,11 +19,12 @@ logger = logging.getLogger(__name__)
 
 class BlockChain(object):
 
-    def __init__(self, blockchain_address=None):
+    def __init__(self, blockchain_address=None, port = None):
         self.transaction_pool = []
         self.chain = []
         self.create_block(0, self.hash({}))
         self.blockchain_address = blockchain_address
+        self.port = port
 
     def create_block(self, nonce, previous_hash):
         block = utils.sorted_dict_by_key({
@@ -42,14 +43,27 @@ class BlockChain(object):
         return hashlib.sha256(sorted_block.encode()).hexdigest()
 
     def add_transaction(self, sender_blockchain_address,
-                        recipient_blockchain_address, value):
+                        recipient_blockchain_address, value,
+                        sender_public_key=None, signature=None):
         transaction = utils.sorted_dict_by_key({
             'sender_blockchain_address': sender_blockchain_address,
             'recipient_blockchain_address': recipient_blockchain_address,
             'value': float(value)
         })
-        self.transaction_pool.append(transaction)
-        return True
+        if sender_blockchain_address == MINIG_SENDER:
+            self.transaction_pool.append(transaction)
+            return True
+
+        if self.verify_transaction_signature(
+            sender_public_key, signature, transaction):
+
+            # if self.calculate_total_amount(sender_blockchain_address) < float(value):
+            #     logger.error({'action': 'add_transaction', 'error': 'no_value'})
+            #     return False
+
+            self.transaction_pool.append(transaction)
+            return True
+        return False
     def verify_transaction_signature(
             self,sender_public_key, signature, transaction):
         sha256 = hashlib.sha256()
