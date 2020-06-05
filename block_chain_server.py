@@ -7,9 +7,8 @@ import wallet
 
 app = Flask(__name__)
 
+
 cache = {}
-
-
 def get_blockchain():
     cached_blockchain = cache.get('blockchain')
     if not cached_blockchain:
@@ -33,7 +32,7 @@ def get_chain():
     return jsonify(response), 200
 
 
-@app.route('/transactions',methods=['GET', 'POST'])
+@app.route('/transactions', methods=['GET', 'POST'])
 def transaction():
     block_chain = get_blockchain()
     if request.method == 'GET':
@@ -43,6 +42,7 @@ def transaction():
             'length': len(transactions)
         }
         return jsonify(response), 200
+
     if request.method == 'POST':
         request_json = request.json
         required = (
@@ -50,45 +50,24 @@ def transaction():
             'recipient_blockchain_address',
             'value',
             'sender_public_key',
-            'signature'
-        )
+            'signature')
         if not all(k in request_json for k in required):
-            return jsonify({'message' : 'missing values'}), 400
+            return jsonify({'message': 'missing values'}), 400
+
         is_created = block_chain.create_transaction(
             request_json['sender_blockchain_address'],
             request_json['recipient_blockchain_address'],
             request_json['value'],
             request_json['sender_public_key'],
-            request_json['signature']
+            request_json['signature'],
         )
         if not is_created:
             return jsonify({'message': 'fail'}), 400
-        return jsonify({'message':'success'}), 201
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return jsonify({'message': 'success'}), 201
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-
     parser = ArgumentParser()
     parser.add_argument('-p', '--port', default=5000,
                         type=int, help='port to listen on')
