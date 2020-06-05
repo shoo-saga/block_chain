@@ -64,8 +64,19 @@ class BlockChain(object):
             self.transaction_pool.append(transaction)
             return True
         return False
-    def verify_transaction_signature(
-            self,sender_public_key, signature, transaction):
+
+    def create_transaction(self, sender_blockchain_address,
+                           recipient_blockchain_address,value,
+                           sender_public_key, signature):
+        is_transacted = self.add_transaction(
+            sender_blockchain_address, recipient_blockchain_address,
+            value, sender_public_key, signature
+        )
+
+        return is_transacted
+
+
+    def verify_transaction_signature( self, sender_public_key, signature, transaction):
         sha256 = hashlib.sha256()
         sha256.update(str(transaction).encode('utf-8'))
         message = sha256.digest()
