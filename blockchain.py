@@ -12,10 +12,10 @@ import requests
 
 import utils
 
-MINING_DIFFICULTY: int = 3
-MINIG_SENDER = 'THE BLOCKCHAIN'
+MINING_DIFFICULTY = 3
+MINING_SENDER = 'THE BLOCKCHAIN'
 MINING_REWARD = 1.0
-MINIG_TMER_SEC = 20
+MINING_TIMER_SEC = 20
 
 BLOCKCHAIN_PORT_RANGE = (5000, 5003)
 NEIGHBOURS_IP_RANGE_NUM = (0, 1)
@@ -37,19 +37,19 @@ class BlockChain(object):
         self.mining_semaphore = threading.Semaphore(1)
         self.sync_neighbours_semaphore = threading.Semaphore(1)
 
-
     def run(self):
         self.sync_neighbours()
         self.resolve_conflicts()
-        # self.start_mining()
+        self.start_mining()
 
     def set_neighbours(self):
         self.neighbours = utils.find_neighbours(
             '127.0.0.1', self.port,
             NEIGHBOURS_IP_RANGE_NUM[0], NEIGHBOURS_IP_RANGE_NUM[1],
-            BLOCKCHAIN_PORT_RANGE[0], BLOCKCHAIN_PORT_RANGE[1]
-        )
-        logger.info({'action': 'set_neighbours', 'neighbours': self.neighbours})
+            BLOCKCHAIN_PORT_RANGE[0], BLOCKCHAIN_PORT_RANGE[1])
+        logger.info({
+            'action': 'set_neighbours', 'neighbours': self.neighbours
+        })
 
     def sync_neighbours(self):
         is_acquire = self.sync_neighbours_semaphore.acquire(blocking=False)
@@ -58,8 +58,7 @@ class BlockChain(object):
                 stack.callback(self.sync_neighbours_semaphore.release)
                 self.set_neighbours()
                 loop = threading.Timer(
-                    BLOCKCHAIN_NEIGHBOURS_SYNC_TIME_SEC, self.set_neighbours
-                )
+                    BLOCKCHAIN_NEIGHBOURS_SYNC_TIME_SEC, self.sync_neighbours)
                 loop.start()
 
     def create_block(self, nonce, previous_hash):
@@ -68,13 +67,13 @@ class BlockChain(object):
             'transactions': self.transaction_pool,
             'nonce': nonce,
             'previous_hash': previous_hash
-
         })
         self.chain.append(block)
         self.transaction_pool = []
 
         for node in self.neighbours:
             requests.delete(f'http://{node}/transactions')
+
         return block
 
     def hash(self, block):
@@ -89,15 +88,19 @@ class BlockChain(object):
             'recipient_blockchain_address': recipient_blockchain_address,
             'value': float(value)
         })
-        if sender_blockchain_address == MINIG_SENDER:
+
+        if sender_blockchain_address == MINING_SENDER:
             self.transaction_pool.append(transaction)
             return True
 
         if self.verify_transaction_signature(
                 sender_public_key, signature, transaction):
-            # if self.calculate_total_amount(sender_blockchain_address) < float(value):
-            #     logger.error({'action': 'add_transaction', 'error': 'no_value'})
-            #     return False
+
+            if (self.calculate_total_amount(sender_blockchain_address)
+                    < float(value)):
+                logger.error(
+                        {'action': 'add_transaction', 'error': 'no_value'})
+                return False
 
             self.transaction_pool.append(transaction)
             return True
@@ -106,26 +109,28 @@ class BlockChain(object):
     def create_transaction(self, sender_blockchain_address,
                            recipient_blockchain_address, value,
                            sender_public_key, signature):
+
         is_transacted = self.add_transaction(
             sender_blockchain_address, recipient_blockchain_address,
-            value, sender_public_key, signature
-        )
+            value, sender_public_key, signature)
+
         if is_transacted:
             for node in self.neighbours:
                 requests.put(
                     f'http://{node}/transactions',
                     json={
                         'sender_blockchain_address': sender_blockchain_address,
-                        'recipient_blockchain_address': recipient_blockchain_address,
+                        'recipient_blockchain_address':
+                            recipient_blockchain_address,
                         'value': value,
                         'sender_public_key': sender_public_key,
                         'signature': signature,
-
                     }
                 )
         return is_transacted
 
-    def verify_transaction_signature(self, sender_public_key, signature, transaction):
+    def verify_transaction_signature(
+            self, sender_public_key, signature, transaction):
         sha256 = hashlib.sha256()
         sha256.update(str(transaction).encode('utf-8'))
         message = sha256.digest()
@@ -143,7 +148,7 @@ class BlockChain(object):
             'previous_hash': previous_hash
         })
         guess_hash = self.hash(guess_block)
-        return guess_hash[:difficulty] == '0' * difficulty
+        return guess_hash[:difficulty] == '0'*difficulty
 
     def proof_of_work(self):
         transactions = self.transaction_pool.copy()
@@ -154,11 +159,11 @@ class BlockChain(object):
         return nonce
 
     def mining(self):
-        if not self.transaction_pool:
-            return False
+        # if not self.transaction_pool:
+        #     return False
 
         self.add_transaction(
-            sender_blockchain_address=MINIG_SENDER,
+            sender_blockchain_address=MINING_SENDER,
             recipient_blockchain_address=self.blockchain_address,
             value=MINING_REWARD)
         nonce = self.proof_of_work()
@@ -177,7 +182,7 @@ class BlockChain(object):
             with contextlib.ExitStack() as stack:
                 stack.callback(self.mining_semaphore.release)
                 self.mining()
-                loop = threading.Timer(MINIG_TMER_SEC, self.start_mining)
+                loop = threading.Timer(MINING_TIMER_SEC, self.start_mining)
                 loop.start()
 
     def calculate_total_amount(self, blockchain_address):
@@ -185,9 +190,11 @@ class BlockChain(object):
         for block in self.chain:
             for transaction in block['transactions']:
                 value = float(transaction['value'])
-                if blockchain_address == transaction['recipient_blockchain_address']:
+                if blockchain_address == \
+                        transaction['recipient_blockchain_address']:
                     total_amount += value
-                if blockchain_address == transaction['sender_blockchain_address']:
+                if blockchain_address == \
+                        transaction['sender_blockchain_address']:
                     total_amount -= value
         return total_amount
 
@@ -201,9 +208,9 @@ class BlockChain(object):
 
             if not self.valid_proof(
                     block['transactions'], block['previous_hash'],
-                    block['nonce'], MINING_DIFFICULTY
-            ):
+                    block['nonce'], MINING_DIFFICULTY):
                 return False
+
             pre_block = block
             current_index += 1
         return True
@@ -220,6 +227,7 @@ class BlockChain(object):
                 if chain_length > max_length and self.valid_chain(chain):
                     max_length = chain_length
                     longest_chain = chain
+
         if longest_chain:
             self.chain = longest_chain
             logger.info({'action': 'resolve_conflicts', 'status': 'replaced'})

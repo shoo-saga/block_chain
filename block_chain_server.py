@@ -5,8 +5,8 @@ from flask import request
 import blockchain
 import wallet
 
-app = Flask(__name__)
 
+app = Flask(__name__)
 cache = {}
 
 
@@ -108,24 +108,23 @@ def start_mine():
     return jsonify({'message': 'success'}), 200
 
 
-@app.route('/consensus', methods={'PUT'})
+@app.route('/consensus', methods=['PUT'])
 def consensus():
     block_chain = get_blockchain()
-    replaced = block_chain.resolsve_conflicts()
+    replaced = block_chain.resolve_conflicts()
     return jsonify({'replaced': replaced}), 200
+
 
 @app.route('/amount', methods=['GET'])
 def get_total_amount():
     blockchain_address = request.args['blockchain_address']
     return jsonify({
         'amount': get_blockchain().calculate_total_amount(blockchain_address)
-    }),200
-
+    }), 200
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-
     parser = ArgumentParser()
     parser.add_argument('-p', '--port', default=5000,
                         type=int, help='port to listen on')
