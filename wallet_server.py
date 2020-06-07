@@ -88,7 +88,6 @@ def calculate_amount():
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-
     parser = ArgumentParser()
     parser.add_argument('-p', '--port', default=8080,
                         type=int, help='port to listen on')
@@ -98,4 +97,4 @@ if __name__ == '__main__':
     port = args.port
     app.config['gw'] = args.gw
 
-    app.run(host='127.0.0.1', port=port, debug=True)
+    app.run(host='127.0.0.1', port=port, threaded=True, debug=True)
